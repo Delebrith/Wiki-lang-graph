@@ -29,7 +29,7 @@ class ViewModel:
     async def update_link(self):
         logging.debug("Update link")
         print(self.link)
-        await self.model.get_article_data(title="Bitwa pod Cedynią")
+        await self.model.get_article_data(article_name="Bitwa pod Cedynią")
         self._update_network()
         self.colors = ["#%06x" % random.randint(0, 0xFFFFFF) for node in self.left_nodes]
         self.available_languages = [str(node).split("__")[1] for node in self.left_nodes]
@@ -55,7 +55,10 @@ class ViewModel:
 
     async def update_timeline_value(self):
         print(self.selected_timeline_value)
-        await self.model.get_article_data(title="Bitwa pod Cedynią", moment_in_time=self.selected_timeline_value)
+        await self.model.get_article_data(
+            article_name="Bitwa pod Cedynią",
+            moment_in_time=self.timeline_values.index(self.selected_timeline_value)
+        )
         self._update_network()
         self._find_metrics_by_languages()
 

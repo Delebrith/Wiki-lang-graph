@@ -22,9 +22,8 @@ class Model:
     - a list of available moments in time for analysis of previous versions
     """
 
-    async def get_article_data(self, title, moment_in_time=None):
-        languages = ("pl", "en", "de", "fr", "cz")
-        article_name = "Bitwa pod Cedynią"
+    async def get_article_data(self, article_name, moment_in_time=0):
+        languages = None
         article_language = "pl"
 
         graph: nx.Graph = initialize_graph()
@@ -49,7 +48,7 @@ class Model:
         self.metrics = metrics
         self.timestamps = timestamps
 
-        temp_timestamp: RevisionKey = timestamps[0]
+        temp_timestamp: RevisionKey = timestamps[moment_in_time]
         temp_graph = initialize_graph()
         page = Page(
             language=temp_timestamp.language,
