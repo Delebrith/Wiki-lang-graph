@@ -1,5 +1,3 @@
-import random
-
 from bokeh.document import without_document_lock
 from bokeh.io import curdoc
 from bokeh.layouts import column, row
@@ -17,12 +15,12 @@ from bokeh.models import (
     Slider,
     TextInput,
     CheckboxGroup,
-    RadioGroup, ColumnDataSource,
+    RadioGroup,
 )
 from bokeh.palettes import Spectral4
 from bokeh.plotting import from_networkx
 
-from scripts.view.Layouts import degree_bipartite_layout, get_degree_map
+from scripts.view.Layouts import degree_bipartite_layout
 
 
 class View:
@@ -35,6 +33,12 @@ class View:
 
     @without_document_lock
     def modify_doc(self, doc):
+        def make_loading_screen():
+            loading_text = Paragraph(text="Loading...")
+            loading_text.sizing_mode = 'stretch_both'
+            screen = loading_text
+            doc.add_root(screen)
+
         def get_network_data():
             G, left_nodes, right_nodes = (
                 self.view_model.network,
@@ -83,7 +87,7 @@ class View:
             alpha = [
                 0 if self.node_renderer_data_source["visibility"][list(G).index(n)] is False
                 else 0.5 if n in left_nodes
-                else G.degree(n) / max_right_degree for n in G
+                else 0.3 + (0.7 * G.degree(n) / max_right_degree) for n in G
             ]
             self.node_renderer_data_source["alpha"] = alpha
 
@@ -116,11 +120,8 @@ class View:
             G, left_nodes, right_nodes = get_network_data()
 
             width = 1000
-            right_nodes_degree_map = get_degree_map(G, subset=right_nodes)
-
-            key_largest_right_subset = max(right_nodes_degree_map, key=lambda deg: len(right_nodes_degree_map[deg]))
-            height = 15 * len(right_nodes_degree_map[key_largest_right_subset])
-            vertical_margin = 0.05 * width / height
+            height = 10 * len(right_nodes)
+            vertical_margin = 0.1 * width / height
 
             plot = prepare_plot(width=width, height=height, vertical_margin=vertical_margin)
 
@@ -207,10 +208,12 @@ class View:
 
             def update_timeline_value(attr, old, new):
                 doc.clear()
+                make_loading_screen()
                 new_value = self.view_model.timeline_values[new]
                 self.view_model.selected_timeline_value = new_value
                 curdoc().add_next_tick_callback(self.view_model.update_timeline_value)
                 header.text = "Select moment in time: %s" % new_value
+                doc.clear()
                 self.modify_doc(doc)
 
             slider.on_change("value", update_timeline_value)
@@ -219,26 +222,26 @@ class View:
         def make_text_input():
             text_input = TextInput(
                 title="Insert link to wikipedia article",
-                value="link" if self.view_model.link is None else self.view_model.link,
+                value="article title | language" if self.view_model.article is None else self.view_model.article,
             )
 
             def update_link(attr, old, new):
                 doc.clear()
+                make_loading_screen()
 
                 async def proceed_update():
-                    await self.view_model.update_link()
+                    self.view_model.article = new
+                    exists = await self.view_model.check_article_exists()
+                    if exists:
+                        self.input_error_message = None
+                        await self.view_model.update_article()
+                    else:
+                        self.input_error_message = "Article %s not found." % old
+                        self.view_model.article = None
+                    doc.clear()
                     self.modify_doc(doc)
 
-                if self.view_model.is_existing(new):
-                    print("YAY!")
-                    self.input_error_message = None
-                    self.view_model.link = new
-                    curdoc().add_next_tick_callback(proceed_update)
-                else:
-                    print("boooo....")
-                    self.input_error_message = "Link %s not found." % old
-                    self.view_model.link = None
-                    self.modify_doc(doc)
+                curdoc().add_next_tick_callback(proceed_update)
 
             text_input.on_change("value", update_link)
             return text_input
@@ -249,10 +252,12 @@ class View:
         def make_language_checkbox():
             def update_selected(attr, old, new):
                 doc.clear()
+                make_loading_screen()
                 selection = list()
                 for i in new:
                     selection.append(self.view_model.available_languages[i])
                 self.view_model.update_selected_languages(selection)
+                doc.clear()
                 self.modify_doc(doc)
 
             options = self.view_model.available_languages
@@ -266,13 +271,19 @@ class View:
 
         def make_analysis_mode_radio():
             def update_selected(attr, old, new):
-                self.view_model.update_analysis_mode(new)
-                doc.clear()
-                self.modify_doc(doc)
+                async def proceed_update():
+                    await self.view_model.update_analysis_mode()
+                    doc.clear()
+                    self.modify_doc(doc)
 
-            active = self.view_model.analysis_mode
+                doc.clear()
+                make_loading_screen()
+                self.view_model.analysis_mode = new
+                curdoc().add_next_tick_callback(proceed_update)
+
+            active = self.view_model.analysis_options.index(self.view_model.analysis_mode)
             radio_group = RadioGroup(
-                name="analysis_mode",
+                name="Analysis mode",
                 labels=self.view_model.analysis_options,
                 active=active,
             )

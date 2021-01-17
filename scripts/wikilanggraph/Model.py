@@ -22,16 +22,12 @@ class Model:
     - a list of available moments in time for analysis of previous versions
     """
 
-    async def get_article_data(self, article_name, moment_in_time=0):
+    async def get_article_data(self, article_name, article_language='en', moment_in_time=0, use_backlinks=False):
         languages = None
-        article_language = "pl"
 
         graph: nx.Graph = initialize_graph()
         starting_page: Page = initialize_starting_page(
             language=article_language, title=article_name
-        )
-        graph = await generate_lang_graph(
-            graph=graph, starting_page=starting_page, languages=languages
         )
         graph: nx.Graph = await generate_lang_graph(
             graph=graph, starting_page=starting_page, languages=languages
@@ -43,8 +39,6 @@ class Model:
         logging.info("Metrics: \n %s", metrics.to_string())
         logging.info("Timestamps: %s", timestamps)
 
-        metrics = calculate_dissimilarity_metrics(graph=graph)
-        timestamps = starting_page.timepoints_all_languages
         self.metrics = metrics
         self.timestamps = timestamps
 
@@ -57,8 +51,14 @@ class Model:
             timestamp=temp_timestamp.timestamp,
         )
         logging.debug("Backlinks: %s", starting_page._backlinks)
-        temp_graph = await generate_lang_graph(
-            graph=temp_graph, starting_page=page, languages=languages
-        )
-        self.network = temp_graph
+        # TODO finish revisions
+        # temp_graph = await generate_lang_graph(
+        #     graph=temp_graph, starting_page=page, languages=languages
+        # )
+        self.network = graph
 
+    async def is_page_exising(self, article_name, article_language='en'):
+        starting_page: Page = initialize_starting_page(
+            language=article_language, title=article_name
+        )
+        return starting_page is None

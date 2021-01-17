@@ -12,14 +12,3 @@ def degree_bipartite_layout(G, left_nodes, right_nodes):
         result[k] = v
 
     return result
-
-
-def get_degree_map(G, subset=None):
-    degree_map = {}
-    for node, degree in G.degree():
-        if subset is None or node in subset:
-            if degree in degree_map.keys():
-                degree_map[degree].append(node)
-            else:
-                degree_map[degree] = [node]
-    return degree_map
